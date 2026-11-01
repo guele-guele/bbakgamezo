@@ -124,13 +124,23 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
    null 이면 이 브라우저에만 저장하는 로컬 모드로 동작합니다.
    ADMIN_EMAILS: 기록을 수정할 수 있는 관리자 구글 계정 (firestore.rules 와 동일하게)
    ============================================================ */
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB49qMxZZ5u7i6pSFMt_hi8aHPxm3qvsIU",
+  authDomain: "bbakgamezo.firebaseapp.com",
+  projectId: "bbakgamezo",
+  storageBucket: "bbakgamezo.firebasestorage.app",
+  messagingSenderId: "532999484434",
+  appId: "1:532999484434:web:0486bed2e955217e3014cb"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 /* 예:
 const FIREBASE_CONFIG = {
   apiKey: "...", authDomain: "...firebaseapp.com", projectId: "...", appId: "..."
 };
 */
-const ADMIN_EMAILS = [];   // 예: ['내계정@gmail.com']
+const ADMIN_EMAILS = ['moonsh3653@gmail.com'];
 
 /* ============================================================ */
 const KEY = 'bbakgamezo-v1';
