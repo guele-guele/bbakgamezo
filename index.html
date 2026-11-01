@@ -122,7 +122,7 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
 /* ============================================================
    설정: Firebase 콘솔 > 프로젝트 설정 > 내 앱(웹)의 firebaseConfig 값을 붙여넣으세요.
    null 이면 이 브라우저에만 저장하는 로컬 모드로 동작합니다.
-   ADMIN_EMAILS: 기록을 수정할 수 있는 관리자 구글 계정 (firestore.rules 와 동일하게)
+   로그인 없이 누구나 기록을 보고 수정할 수 있습니다.
    ============================================================ */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyB49qMxZZ5u7i6pSFMt_hi8aHPxm3qvsIU",
@@ -137,7 +137,6 @@ const FIREBASE_CONFIG = {
   apiKey: "...", authDomain: "...firebaseapp.com", projectId: "...", appId: "..."
 };
 */
-const ADMIN_EMAILS = ['moonsh3653@gmail.com'];   // 예: ['내계정@gmail.com']
 
 /* ============================================================ */
 const KEY = 'bbakgamezo-v1';
@@ -162,7 +161,7 @@ const elColor = k => (ELEMENTS.find(e=>e.k===k) || ELEMENTS[0]).c;
 const elIcon = k => (ELEMENTS.find(e=>e.k===k) || ELEMENTS[0]).i;
 const entryTotal = e => e.combos.reduce((a,c)=>a+(Number(c.dmg)||0),0);
 const bossTotal = b => b.entries.reduce((a,e)=>a+entryTotal(e),0);
-const canEdit = () => !useFB || !!(user && ADMIN_EMAILS.includes(user.email));
+const canEdit = () => true;   // 모든 사용자가 수정 가능
 const season = () => state.seasons.find(s => s.id === state.current);
 const seasonSort = (a,b) => (a.start||'9999').localeCompare(b.start||'9999') || (a.name||'').localeCompare(b.name||'','ko');
 const hexId = n => 'n_' + [...new TextEncoder().encode(n.toLowerCase())].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -325,14 +324,11 @@ function render(){
   const focusId = act && KEEP.includes(act.id) ? act.id : null;
   const caret = focusId && act.selectionStart != null ? act.selectionStart : null;
 
-  $('#tools').innerHTML = useFB
-    ? (user ? `<span class="muted">${esc(user.email)}${edit?' (관리자)':''}</span><button data-act="logout">로그아웃</button>`
-            : `<button data-act="login">관리자 로그인</button>`)
+  $('#tools').innerHTML = useFB ? ''
     : `<button data-act="export">내보내기</button><button data-act="import">가져오기</button>`;
 
   let h = '';
   if(!useFB) h += `<p class="notice">Firebase 설정 전이라 이 브라우저에만 저장돼요. 코드 위쪽의 FIREBASE_CONFIG를 채우면 여러 명이 함께 쓸 수 있어요.</p>`;
-  else if(!edit) h += `<p class="notice">보기 전용이에요. 빡겜조 신청은 누구나 할 수 있고, 기록 수정은 관리자만 할 수 있어요.</p>`;
   if(!state.loaded) h += `<div class="empty-msg">불러오는 중…</div>`;
 
   /* 시즌 이동 */
