@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BBAKGAMEZO</title>
+<title>PIONEER</title>
 <link rel="icon" type="image/png" href="char-icon.png">
 <link rel="apple-touch-icon" href="char-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
@@ -134,7 +134,7 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
   <header>
     <div class="brand">
       <img class="logo" src="char-icon.png" alt="" onerror="this.style.display='none'">
-      <h1>BBAKGAMEZO</h1>
+      <h1>PIONEER</h1>
     </div>
     <div class="tools" id="tools"></div>
   </header>
@@ -364,7 +364,7 @@ function bossHTML(b, edit){
 
 const HELP = `<section class="panel help"><h2>항목 설명</h2><dl>
   <dt>시즌</dt><dd>시즌별로 기록이 따로 저장돼요. 위쪽 탭/‹ › 로 이동하고, 이름·시작일·종료일을 넣어 새 시즌을 만들어요. 시즌을 삭제하면 그 시즌의 모든 기록이 함께 지워져요.</dd>
-  <dt>빡겜조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
+  <dt>파이오니아 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
   <dt>보스 추가</dt><dd>보스 이름과 속성(풍압·전격·철갑·수냉·작열)을 골라 추가하면 해당 속성 열에 보스 카드가 생겨요.</dd>
   <dt>속성별 표</dt><dd>열 머리의 ‘보스 수 · 합계’는 그 속성 보스들의 딜량을 모두 더한 값이에요.</dd>
   <dt>보스 카드</dt><dd>이름·속성을 바꾸고, 정렬(입력순/닉네임순/딜량순)을 고를 수 있어요. ‘합계’는 카드 안 모든 인원의 딜량 합이에요.</dd>
@@ -415,7 +415,7 @@ function render(){
 
     /* 빡겜조 신청 (이름 가나다순) */
     const apps = state.applicants.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-    h += `<section class="panel ${s?'':'locked'}"><h2>빡겜조 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
+    h += `<section class="panel ${s?'':'locked'}"><h2>파이오니아 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
       <div class="row" style="margin-top:10px">
         <input type="text" id="applicantName" maxlength="20" placeholder="${s?'이름 입력 후 신청':'시즌이 생기면 신청할 수 있어요'}" style="max-width:260px" ${s?'':'disabled'}>
         <button class="primary" data-act="addApplicant" ${s?'':'disabled'}>신청</button>
