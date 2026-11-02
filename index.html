@@ -98,6 +98,22 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
 .combo input.dmg{margin:6px 0;text-align:right;font-variant-numeric:tabular-nums;color:var(--dmg);font-weight:700}
 .add-combo{width:100%;border-style:dashed;color:var(--sub);font-size:13px}
 
+.grip{cursor:grab;user-select:none;padding:0 6px;color:var(--sub)}
+.sumbox{margin-top:12px;border:1px dashed var(--pink);border-radius:var(--r);padding:8px;background:rgba(0,0,0,.3)}
+.sumbox.over{border-style:solid;background:rgba(244,182,200,.12)}
+.sum-title{font-weight:700;margin-bottom:6px}
+.sumbox input[data-f=hp]{text-align:right;font-weight:700;color:var(--dmg)}
+.hpbar{position:relative;height:24px;margin:6px 0;background:rgba(0,0,0,.5);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.hpbar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b3262e,var(--red));transition:width .25s}
+.hpbar span{position:relative;display:block;text-align:center;font-size:12px;line-height:22px;font-weight:700}
+.stack-item{display:flex;gap:6px;align-items:center;border-top:1px solid var(--line);padding:4px 0;font-size:13px}
+.stack-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stack-item b{color:var(--dmg);font-variant-numeric:tabular-nums}
+.stack-item em{font-style:normal;color:var(--sub);font-size:12px;min-width:72px;text-align:right}
+.help dl{margin:10px 0 0;display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:13px}
+.help dt{font-weight:700;color:var(--pink)}
+.help dd{margin:0;color:var(--sub)}
+@media(max-width:720px){.help dl{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:5;background:var(--red);color:#fff;padding:9px 16px;border-radius:var(--r);opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
 @media(max-width:720px){.season-form{grid-template-columns:1fr 1fr}.season-form .wide{grid-column:1/-1}h1{font-size:28px}}
@@ -141,7 +157,7 @@ const FIREBASE_CONFIG = {
 /* ============================================================ */
 const KEY = 'bbakgamezo-v1';
 const CUR_KEY = 'bbakgamezo-current';
-const MAX_COMBO = 3;
+const MAX_COMBO = Infinity;   // 조합 칸 개수 제한 없음
 const ELEMENTS = [
   {k:'풍압', c:'#3fc46a', i:'icons/wind.webp'},
   {k:'전격', c:'#a766f2', i:'icons/electric.webp'},
@@ -157,6 +173,9 @@ const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => (Number(n) || 0).toLocaleString('ko-KR');
+const fmtDmg = n => { n = Number(n)||0; return n>=1e8 ? (+(n/1e8).toFixed(4)).toLocaleString('ko-KR')+'억' : fmt(n); };
+const parseDmg = s => { s = String(s||''); const n = parseFloat(s.replace(/,/g,'').replace(/[^0-9.]/g,'')); if(!(n>0)) return 0; return Math.round(n*(/억/.test(s)?1e8:/만/.test(s)?1e4:1)); };
+const stackSum = b => (b.stack||[]).reduce((a,x)=>a+(Number(x.dmg)||0),0);
 const elColor = k => (ELEMENTS.find(e=>e.k===k) || ELEMENTS[0]).c;
 const elIcon = k => (ELEMENTS.find(e=>e.k===k) || ELEMENTS[0]).i;
 const entryTotal = e => e.combos.reduce((a,c)=>a+(Number(c.dmg)||0),0);
@@ -173,7 +192,8 @@ function run(p, onfail){ return Promise.resolve(p).catch(err=>{ console.error(er
 function normBoss(b){
   return {...b,
     element: ELEMENTS.some(e=>e.k===b.element) ? b.element : '풍압',
-    sort: b.sort || 'input', created: b.created || 0,
+    sort: b.sort || 'input', created: b.created || 0, hp: Number(b.hp)||0,
+    stack: (b.stack||[]).map(x=>({id:x.id||uid(), eid:x.eid||'', nick:x.nick||'', combo:x.combo||'', dmg:Number(x.dmg)||0})),
     entries: (b.entries||[]).map(e=>({id:e.id||uid(), nick:e.nick||'',
       combos:(e.combos&&e.combos.length?e.combos:[{}]).map(c=>({combo:c.combo||'',dmg:Number(c.dmg)||0,memo:c.memo||''}))}))};
 }
@@ -276,6 +296,23 @@ function sortedEntries(b){
   return list;
 }
 
+function sumHTML(b, edit){
+  const dis = edit ? '' : 'disabled', used = stackSum(b), hp = Number(b.hp)||0;
+  const rem = Math.max(0, hp - used), pct = hp ? Math.round(rem/hp*1000)/10 : 0;
+  let left = hp;
+  let h = `<div class="sumbox" data-drop="${b.id}">
+    <div class="sum-title">합산 딜 <span class="muted">(딜량을 끌어다 놓거나 ‘합산▸’)</span></div>
+    <input type="text" data-f="hp" value="${hp?fmtDmg(hp):''}" placeholder="보스 체력 (예: 500억)" aria-label="보스 체력" ${dis}>
+    <div class="hpbar"><i style="width:${pct}%"></i><span>${hp ? (rem>0 ? `남은 ${fmtDmg(rem)} · ${pct}%` : `처치! 초과 ${fmtDmg(used-hp)}`) : '체력을 입력하면 표시돼요'}</span></div>`;
+  (b.stack||[]).forEach(x=>{
+    left -= x.dmg;
+    h += `<div class="stack-item"><span>${esc(x.nick||'이름 없음')}${x.combo?` · ${esc(x.combo)}`:''}</span><b>-${fmtDmg(x.dmg)}</b><em>${hp?`→ ${fmtDmg(Math.max(0,left))}`:''}</em>${edit?`<button class="ghost danger" data-act="delStack" data-s="${x.id}" aria-label="합산에서 제거">×</button>`:''}</div>`;
+  });
+  if(!(b.stack||[]).length) h += `<div class="empty-msg">여기로 딜량을 끌어다 놓으세요</div>`;
+  if(edit) h += `<div class="row" style="margin-top:6px"><button class="primary" data-act="autoAssign">자동 배정</button><button data-act="clearStack">초기화</button></div>`;
+  return h + `</div>`;
+}
+
 function bossHTML(b, edit){
   const dis = edit ? '' : 'disabled';
   let h = `<article class="boss" data-b="${b.id}" style="--el:${elColor(b.element)}">
@@ -292,30 +329,42 @@ function bossHTML(b, edit){
         <option value="dmg" ${b.sort==='dmg'?'selected':''}>딜량순</option>
       </select>
     </div>
-    <div class="total" style="margin-bottom:4px" data-tot="boss:${b.id}">합계 ${fmt(bossTotal(b))}</div>`;
+    <div class="total" style="margin-bottom:4px" data-tot="boss:${b.id}">합계 ${fmtDmg(bossTotal(b))}</div>`;
   if(!b.entries.length) h += `<div class="empty-msg">기록이 없어요</div>`;
   sortedEntries(b).forEach(e=>{
     h += `<div class="entry" data-e="${e.id}">
       <div class="entry-top">
         <input type="text" data-f="nick" list="names" value="${esc(e.nick)}" placeholder="닉네임" aria-label="닉네임" ${dis}>
-        <span class="total" data-tot="entry:${e.id}">${fmt(entryTotal(e))}</span>
+        <span class="total${edit?' grip':''}" ${edit?`draggable="true" data-drag="${b.id}|${e.id}|" title="끌어서 합산 체력 칸에 놓기"`:''} data-tot="entry:${e.id}">${fmtDmg(entryTotal(e))}</span>
         ${edit?`<button class="ghost danger" data-act="delEntry" aria-label="인원 삭제">×</button>`:''}
       </div>`;
     e.combos.forEach((c,i)=>{
       h += `<div class="combo" data-c="${i}">
-        <div class="combo-top"><span>조합 ${i+1}</span>${edit&&e.combos.length>1?`<button data-act="delCombo" aria-label="조합 삭제">×</button>`:''}</div>
+        <div class="combo-top"><span>조합 ${i+1}</span><span>${edit?`<span class="grip" draggable="true" data-drag="${b.id}|${e.id}|${i}" title="끌어서 합산 체력 칸에 놓기">⠿</span><button data-act="toStack" title="합산 딜에 추가">합산▸</button>`:''}${edit&&e.combos.length>1?`<button data-act="delCombo" aria-label="조합 삭제">×</button>`:''}</span></div>
         <input type="text" data-f="combo" value="${esc(c.combo)}" placeholder="조합 입력" aria-label="조합" ${dis}>
-        <input type="text" inputmode="numeric" class="dmg" data-f="dmg" value="${c.dmg?fmt(c.dmg):''}" placeholder="딜량" aria-label="딜량" ${dis}>
+        <input type="text" inputmode="numeric" class="dmg" data-f="dmg" value="${c.dmg?fmtDmg(c.dmg):''}" placeholder="딜량 (예: 12.5억)" aria-label="딜량" ${dis}>
         <textarea data-f="memo" rows="2" placeholder="기타 메모" aria-label="기타 메모" ${dis}>${esc(c.memo)}</textarea>
       </div>`;
     });
-    if(edit && e.combos.length < MAX_COMBO) h += `<button class="add-combo" data-act="addCombo">+ 조합 칸 (${e.combos.length}/${MAX_COMBO})</button>`;
+    if(edit && e.combos.length < MAX_COMBO) h += `<button class="add-combo" data-act="addCombo">+ 조합 칸 추가</button>`;
     h += `</div>`;
   });
   if(edit) h += `<button data-act="addEntry" style="width:100%;margin-top:6px">+ 인원 추가</button>`;
-  return h + `</article>`;
+  return h + sumHTML(b, edit) + `</article>`;
 }
 
+const HELP = `<section class="panel help"><h2>항목 설명</h2><dl>
+  <dt>시즌</dt><dd>시즌별로 기록이 따로 저장돼요. 위쪽 탭/‹ › 로 이동하고, 이름·시작일·종료일을 넣어 새 시즌을 만들어요. 시즌을 삭제하면 그 시즌의 모든 기록이 함께 지워져요.</dd>
+  <dt>빡겜조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
+  <dt>보스 추가</dt><dd>보스 이름과 속성(풍압·전격·철갑·수냉·작열)을 골라 추가하면 해당 속성 열에 보스 카드가 생겨요.</dd>
+  <dt>속성별 표</dt><dd>열 머리의 ‘보스 수 · 합계’는 그 속성 보스들의 딜량을 모두 더한 값이에요.</dd>
+  <dt>보스 카드</dt><dd>이름·속성을 바꾸고, 정렬(입력순/닉네임순/딜량순)을 고를 수 있어요. ‘합계’는 카드 안 모든 인원의 딜량 합이에요.</dd>
+  <dt>인원 / 닉네임</dt><dd>한 사람의 기록 단위예요. 오른쪽 숫자는 그 사람의 조합 딜량 합이며, 끌어서 합산 딜 칸에 놓을 수 있어요.</dd>
+  <dt>조합 / 딜량 / 메모</dt><dd>조합 칸은 개수 제한 없이 추가할 수 있어요. 딜량은 숫자 또는 ‘12.5억’처럼 입력하고, 1억 이상은 억 단위로 표시돼요. 메모에는 기타 내용을 적어요.</dd>
+  <dt>합산 딜</dt><dd>보스 체력(예: 500억)을 입력하고, 조합 옆 ⠿를 끌어다 놓거나 ‘합산▸’을 누르면 딜량만큼 체력이 깎여요. 남은 체력과 퍼센트가 표시되고 항목마다 차감 후 체력이 나와요. 추가 시점의 값이 복사되므로, 딜량을 고쳤다면 ×로 지우고 다시 추가해 주세요.</dd>
+  <dt>자동 배정</dt><dd>남은 체력을 기준으로, 이 보스에 기록된 인원 중 아직 합산에 없는 사람을 추천해 채워요. 딜량이 큰 순으로 고르되 마지막은 남은 체력을 채우는 가장 작은 딜량을 골라요.</dd>
+  <dt>초기화</dt><dd>합산 딜 목록을 비워요(보스 체력 값은 유지).</dd>
+</dl></section>`;
 const KEEP = ['applicantName','bossName','sName','sStart','sEnd'];
 function render(){
   const edit = canEdit(), s = season();
@@ -378,7 +427,7 @@ function render(){
       h += `<div class="board-scroll"><table class="board"><thead><tr>`;
       ELEMENTS.forEach(el=>{
         const list = state.bosses.filter(b=>b.element===el.k);
-        h += `<th style="--el:${el.c}"><span class="el-head"><img class="el-icon" src="${el.i}" alt="">${el.k}</span><small data-tot="col:${el.k}">보스 ${list.length} · 합계 ${fmt(list.reduce((a,b)=>a+bossTotal(b),0))}</small></th>`;
+        h += `<th style="--el:${el.c}"><span class="el-head"><img class="el-icon" src="${el.i}" alt="">${el.k}</span><small data-tot="col:${el.k}">보스 ${list.length} · 합계 ${fmtDmg(list.reduce((a,b)=>a+bossTotal(b),0))}</small></th>`;
       });
       h += `</tr></thead><tbody><tr>`;
       ELEMENTS.forEach(el=>{
@@ -389,6 +438,7 @@ function render(){
     }
     h += `<datalist id="names">${apps.map(a=>`<option value="${esc(a.name)}">`).join('')}</datalist>`;
   }
+  if(state.loaded) h += HELP;
   $('#app').innerHTML = h;
 
   KEEP.forEach(id=>{ const el=document.getElementById(id); if(el && keep[id]!=null) el.value = keep[id]; });
@@ -410,11 +460,50 @@ document.addEventListener('focusout', ()=>{
 function refreshTotals(){
   document.querySelectorAll('[data-tot]').forEach(el=>{
     const [t,id] = el.dataset.tot.split(':');
-    if(t==='boss'){ const b=state.bosses.find(x=>x.id===id); if(b) el.textContent='합계 '+fmt(bossTotal(b)); }
-    if(t==='entry'){ for(const b of state.bosses){ const e=b.entries.find(x=>x.id===id); if(e){ el.textContent=fmt(entryTotal(e)); break; } } }
-    if(t==='col'){ const l=state.bosses.filter(b=>b.element===id); el.textContent=`보스 ${l.length} · 합계 ${fmt(l.reduce((a,b)=>a+bossTotal(b),0))}`; }
+    if(t==='boss'){ const b=state.bosses.find(x=>x.id===id); if(b) el.textContent='합계 '+fmtDmg(bossTotal(b)); }
+    if(t==='entry'){ for(const b of state.bosses){ const e=b.entries.find(x=>x.id===id); if(e){ el.textContent=fmtDmg(entryTotal(e)); break; } } }
+    if(t==='col'){ const l=state.bosses.filter(b=>b.element===id); el.textContent=`보스 ${l.length} · 합계 ${fmtDmg(l.reduce((a,b)=>a+bossTotal(b),0))}`; }
   });
 }
+
+/* ---------- 합산 딜 ---------- */
+function addStack(tb, e, ci){
+  const c = ci==null ? null : e.combos[ci];
+  const dmg = c ? c.dmg : entryTotal(e);
+  if(!dmg) return toast('딜량이 비어 있어요');
+  tb.stack.push({id:uid(), eid:e.id, nick:e.nick, combo:c?c.combo:'', dmg});
+  run(store.saveBoss(tb));
+}
+function autoAssign(b){
+  if(!b.hp) return toast('보스 체력을 먼저 입력해 주세요');
+  let rem = b.hp - stackSum(b);
+  if(rem<=0) return toast('이미 체력을 모두 채웠어요');
+  const used = new Set(b.stack.map(x=>x.eid));
+  const pool = b.entries.filter(e=>!used.has(e.id) && entryTotal(e)>0).map(e=>({e,t:entryTotal(e)})).sort((x,y)=>y.t-x.t);
+  let n = 0;
+  while(rem>0 && pool.length){
+    const p = pool.filter(x=>x.t>=rem).pop() || pool[0];   // 남은 체력을 채우는 가장 작은 딜, 없으면 가장 큰 딜
+    pool.splice(pool.indexOf(p),1); rem -= p.t; n++;
+    b.stack.push({id:uid(), eid:p.e.id, nick:p.e.nick, combo:'', dmg:p.t});
+  }
+  run(store.saveBoss(b));
+  toast(!n ? '배정할 인원이 없어요' : rem>0 ? `${n}명 배정 · 후보 부족 (남은 ${fmtDmg(rem)})` : `${n}명 자동 배정 완료`);
+}
+document.addEventListener('dragstart', ev=>{
+  const h = ev.target.closest?.('[data-drag]'); if(!h) return;
+  ev.dataTransfer.setData('text/plain', h.dataset.drag); ev.dataTransfer.effectAllowed = 'copy';
+});
+document.addEventListener('dragover', ev=>{ const z = ev.target.closest?.('[data-drop]'); if(z){ ev.preventDefault(); z.classList.add('over'); } });
+document.addEventListener('dragleave', ev=>{ ev.target.closest?.('[data-drop]')?.classList.remove('over'); });
+document.addEventListener('drop', ev=>{
+  const z = ev.target.closest?.('[data-drop]'); if(!z) return;
+  ev.preventDefault(); z.classList.remove('over');
+  const [sbid, eid, ci] = (ev.dataTransfer.getData('text/plain')||'').split('|');
+  const tb = state.bosses.find(x=>x.id===z.dataset.drop), sb = state.bosses.find(x=>x.id===sbid);
+  const e = sb?.entries.find(x=>x.id===eid);
+  if(!tb || !e || !canEdit()) return;
+  addStack(tb, e, ci==='' ? null : +ci); render();
+});
 
 /* ---------- 이벤트 ---------- */
 function ctx(el){
@@ -434,10 +523,11 @@ document.addEventListener('change', ev=>{
   if(f==='sort') b.sort = el.value;
   if(f==='nick' && e){ e.nick = el.value.trim(); el.value = e.nick; }
   if(f==='combo' && c){ c.combo = el.value.trim(); el.value = c.combo; }
-  if(f==='dmg' && c){ c.dmg = parseInt(el.value.replace(/[^0-9]/g,''),10) || 0; el.value = c.dmg ? fmt(c.dmg) : ''; }
+  if(f==='dmg' && c){ c.dmg = parseDmg(el.value); el.value = c.dmg ? fmtDmg(c.dmg) : ''; }
+  if(f==='hp'){ b.hp = parseDmg(el.value); el.value = b.hp ? fmtDmg(b.hp) : ''; }
   if(f==='memo' && c){ c.memo = el.value.trim(); el.value = c.memo; }
   run(store.saveBoss(b));
-  if(f==='bosselement' || f==='sort') render(); else refreshTotals();
+  if(f==='bosselement' || f==='sort' || f==='hp') render(); else refreshTotals();
 });
 document.addEventListener('keydown', ev=>{
   if(ev.key!=='Enter') return;
@@ -492,7 +582,7 @@ document.addEventListener('click', async ev=>{
   else if(act==='addBoss'){
     const name = $('#bossName').value.trim();
     if(!name) return toast('보스 이름을 입력해 주세요');
-    const nb = {id:uid(), name, element:$('#bossEl').value, sort:'input', entries:[], created:Date.now()};
+    const nb = {id:uid(), name, element:$('#bossEl').value, sort:'input', entries:[], hp:0, stack:[], created:Date.now()};
     state.bosses.push(nb); run(store.saveBoss(nb)); $('#bossName').value = '';
   }
   else if(act==='delBoss'){
@@ -503,6 +593,10 @@ document.addEventListener('click', async ev=>{
   else if(act==='delEntry'){ b.entries = b.entries.filter(x=>x!==e); run(store.saveBoss(b)); }
   else if(act==='addCombo'){ if(e.combos.length<MAX_COMBO){ e.combos.push({combo:'',dmg:0,memo:''}); run(store.saveBoss(b)); } }
   else if(act==='delCombo'){ e.combos.splice(ci,1); run(store.saveBoss(b)); }
+  else if(act==='toStack'){ addStack(b, e, ci); }
+  else if(act==='delStack'){ b.stack = b.stack.filter(x=>x.id!==btn.dataset.s); run(store.saveBoss(b)); }
+  else if(act==='clearStack'){ if(!b.stack.length || !confirm('합산 목록을 비울까요?')) return; b.stack = []; run(store.saveBoss(b)); }
+  else if(act==='autoAssign'){ autoAssign(b); }
   else if(act==='export'){
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([localStore.exportData()],{type:'application/json'}));
