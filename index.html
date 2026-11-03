@@ -3,9 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PIONEER</title>
+<title>BBAKGAMEZO</title>
 <link rel="icon" type="image/png" href="char-icon.png">
 <link rel="apple-touch-icon" href="char-icon.png">
+<meta name="description" content="니케 한잔 유니온 레이드 공략조 신청 및 모의전 딜량 체크 조합 사이트">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="파이오니아">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="파이오니아">
+<meta property="og:description" content="니케 한잔 유니온 레이드 공략조 신청 및 모의전 딜량 체크 조합 사이트">
+<meta property="og:url" content="https://hanzan-union-raid-pioneer-strategy.netlify.app">
+<meta property="og:image" content="https://hanzan-union-raid-pioneer-strategy.netlify.appchar-icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="파이오니아">
+<meta name="twitter:description" content="니케 한잔 유니온 레이드 공략조 신청 및 모의전 딜량 체크 조합 사이트">
+<meta name="twitter:image" content="https://hanzan-union-raid-pioneer-strategy.netlify.appchar-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
 :root{
@@ -19,7 +31,7 @@ body{margin:0;color:var(--ink);font:15px/1.55 Pretendard,system-ui,-apple-system
 
 /* 배경: 일러스트 + 비 + 벚꽃 */
 .city{position:fixed;inset:0;z-index:0;
-  background:linear-gradient(180deg,rgba(10,4,7,.45) 0%,rgba(10,4,7,.84) 100%),url(bg.webp) center top/cover no-repeat}
+  background:linear-gradient(180deg,rgba(10,4,7,.45) 0%,rgba(10,4,7,.84) 100%),url(bg.png) center top/cover no-repeat}
 .rain{position:fixed;inset:-200px;z-index:0;pointer-events:none;
   background:repeating-linear-gradient(100deg,transparent 0 14px,rgba(255,205,220,.07) 14px 15px);
   animation:rain .9s linear infinite}
@@ -120,6 +132,13 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
 .help dt{font-weight:700;color:var(--pink)}
 .help dd{margin:0;color:var(--sub)}
 @media(max-width:720px){.help dl{grid-template-columns:1fr}}
+.view-nav{display:flex;gap:6px;margin-bottom:14px}
+.note-item{border-top:1px solid var(--line);padding:10px 0}
+.note-text{white-space:pre-wrap;word-break:break-word;margin-top:4px}
+.discord-link{margin:8px 0 28px;text-align:center}
+.discord-link a{display:inline-block;padding:12px 26px;border-radius:var(--r);background:#5865F2;color:#fff;font-weight:700;text-decoration:none;box-shadow:0 0 14px rgba(88,101,242,.45)}
+.discord-link a:hover{filter:brightness(1.12)}
+.discord-link small{opacity:.85;font-weight:400}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:5;background:var(--red);color:#fff;padding:9px 16px;border-radius:var(--r);opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
 @media(max-width:720px){.season-form{grid-template-columns:1fr 1fr}.season-form .wide{grid-column:1/-1}h1{font-size:28px}.logo{height:36px}}
@@ -134,11 +153,12 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
   <header>
     <div class="brand">
       <img class="logo" src="char-icon.png" alt="" onerror="this.style.display='none'">
-      <h1>PIONEER</h1>
+      <h1>BBAKGAMEZO</h1>
     </div>
     <div class="tools" id="tools"></div>
   </header>
   <div id="app"></div>
+  <footer class="discord-link"><a href="https://discord.gg/D6Qu2GAX5M" target="_blank" rel="noopener noreferrer">💬 한잔 디스코드 바로가기 <small>(필수 가입)</small></a></footer>
 </div>
 <div id="toast" role="status"></div>
 <input type="file" id="file" accept="application/json" hidden>
@@ -167,6 +187,8 @@ const FIREBASE_CONFIG = {
 const KEY = 'bbakgamezo-v1';
 const CUR_KEY = 'bbakgamezo-current';
 const MAX_COMBO = Infinity;   // 조합 칸 개수 제한 없음
+const ADMIN_EMAILS = ['moonsh3653@gmail.com'];   // 공지 작성 가능한 구글 계정 (firestore.rules 와 동일하게)
+const RTYPES = ['헬레틱','로드','타일런트'];
 const ELEMENTS = [
   {k:'풍압', c:'#3fc46a', i:'icons/wind.webp'},
   {k:'전격', c:'#a766f2', i:'icons/electric.webp'},
@@ -175,7 +197,7 @@ const ELEMENTS = [
   {k:'작열', c:'#ec4a4f', i:'icons/fire.webp'},
 ];
 const useFB = !!FIREBASE_CONFIG;
-let state = { seasons: [], current: null, bosses: [], applicants: [], loaded: false };
+let state = { seasons: [], current: null, bosses: [], applicants: [], notices: [], view: 'main', loaded: false };
 let user = null, pendingRender = false;
 
 const $ = s => document.querySelector(s);
@@ -190,6 +212,7 @@ const elIcon = k => (ELEMENTS.find(e=>e.k===k) || ELEMENTS[0]).i;
 const entryTotal = e => e.combos.reduce((a,c)=>a+(Number(c.dmg)||0),0);
 const bossTotal = b => b.entries.reduce((a,e)=>a+entryTotal(e),0);
 const canEdit = () => true;   // 모든 사용자가 수정 가능
+const isAdmin = () => !useFB || (!!user && ADMIN_EMAILS.map(x=>x.toLowerCase()).includes((user.email||'').toLowerCase()));
 const season = () => state.seasons.find(s => s.id === state.current);
 const seasonSort = (a,b) => (a.start||'9999').localeCompare(b.start||'9999') || (a.name||'').localeCompare(b.name||'','ko');
 const hexId = n => 'n_' + [...new TextEncoder().encode(n.toLowerCase())].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -201,7 +224,7 @@ function run(p, onfail){ return Promise.resolve(p).catch(err=>{ console.error(er
 function normBoss(b){
   return {...b,
     element: ELEMENTS.some(e=>e.k===b.element) ? b.element : '풍압',
-    sort: b.sort || 'input', created: b.created || 0, hp: Number(b.hp)||0,
+    sort: b.sort || 'input', created: b.created || 0, hp: Number(b.hp)||0, rtype: RTYPES.includes(b.rtype) ? b.rtype : '',
     stack: (b.stack||[]).map(x=>({id:x.id||uid(), eid:x.eid||'', nick:x.nick||'', combo:x.combo||'', dmg:Number(x.dmg)||0})),
     entries: (b.entries||[]).map(e=>({id:e.id||uid(), nick:e.nick||'',
       combos:(e.combos&&e.combos.length?e.combos:[{}]).map(c=>({combo:c.combo||'',dmg:Number(c.dmg)||0,memo:c.memo||''}))}))};
@@ -209,6 +232,7 @@ function normBoss(b){
 
 /* ---------- 저장소 1: 로컬(브라우저) ---------- */
 const local = { seasons: [] };
+const persistN = () => localStorage.setItem(KEY+'-notices', JSON.stringify(state.notices));
 const persist = () => localStorage.setItem(KEY, JSON.stringify({seasons:local.seasons,current:state.current}));
 const localStore = {
   async init(){
@@ -219,6 +243,7 @@ const localStore = {
       local.seasons = (d.seasons||[]).map(s=>({id:s.id||uid(),name:s.name||'',start:s.start||'',end:s.end||'',
         applicants:s.applicants||[], bosses:(s.bosses||[]).map(normBoss)}));
     }catch(e){} }
+    try{ state.notices = JSON.parse(localStorage.getItem(KEY+'-notices')||'[]'); }catch(e){ state.notices = []; }
     state.seasons = local.seasons; state.loaded = true;
     const pick = local.seasons.find(s=>s.id===cur) || local.seasons[local.seasons.length-1];
     localStore.select(pick?.id || null);
@@ -236,6 +261,7 @@ const localStore = {
   },
   saveBoss(){ persist(); }, deleteBoss(){ persist(); },
   addApplicant(){ persist(); }, deleteApplicant(){ persist(); },
+  addNotice(){ persistN(); }, deleteNotice(){ persistN(); },
   exportData(){ return JSON.stringify({seasons:local.seasons,current:state.current},null,2); },
   importData(d){
     local.seasons.splice(0, local.seasons.length, ...(d.seasons||[]).map(s=>({id:s.id||uid(),name:s.name||'',start:s.start||'',end:s.end||'',
@@ -254,6 +280,9 @@ const fbStore = {
     const a = app.initializeApp(FIREBASE_CONFIG);
     db = fs.getFirestore(a); auth = au.getAuth(a);
     au.onAuthStateChanged(auth, u => { user = u; renderSafe(); });
+    fs.onSnapshot(fs.query(fs.collection(db,'notices'), fs.orderBy('at','desc')), snap => {
+      state.notices = snap.docs.map(d=>({id:d.id, text:d.data().text||'', at:d.data().at||0})); renderSafe();
+    }, err => console.error(err));
     fs.onSnapshot(fs.collection(db,'seasons'), snap => {
       state.seasons = snap.docs.map(d=>({id:d.id,name:d.data().name||'',start:d.data().start||'',end:d.data().end||''})).sort(seasonSort);
       state.loaded = true;
@@ -293,6 +322,8 @@ const fbStore = {
   saveBoss(b){ const {id,...rest} = b; return fb.setDoc(fb.doc(db,'seasons',state.current,'bosses',id), rest); },
   deleteBoss(id){ return fb.deleteDoc(fb.doc(db,'seasons',state.current,'bosses',id)); },
   addApplicant(a){ return fb.setDoc(fb.doc(db,'seasons',state.current,'applicants',a.id), {name:a.name, at:Date.now()}); },
+  addNotice(n){ return fb.setDoc(fb.doc(db,'notices',n.id), {text:n.text, at:n.at}); },
+  deleteNotice(id){ return fb.deleteDoc(fb.doc(db,'notices',id)); },
   deleteApplicant(id){ return fb.deleteDoc(fb.doc(db,'seasons',state.current,'applicants',id)); },
 };
 const store = useFB ? fbStore : localStore;
@@ -305,13 +336,24 @@ function sortedEntries(b){
   return list;
 }
 
+function noticeHTML(){
+  const adm = isAdmin();
+  let h = `<section class="panel"><h2>공지사항</h2>`;
+  if(adm) h += `<div style="margin-top:10px"><textarea id="noticeText" rows="3" maxlength="1000" style="width:100%" placeholder="공지 내용을 입력하세요"></textarea>
+    <div class="row" style="margin-top:6px"><button class="primary" data-act="addNotice">공지 등록</button></div></div>`;
+  else h += `<p class="muted" style="margin:8px 0 0">공지는 관리자만 작성할 수 있어요.</p>`;
+  h += state.notices.length ? state.notices.map(n=>`<div class="note-item"><div class="row" style="justify-content:space-between"><span class="muted">${new Date(n.at).toLocaleString('ko-KR')}</span>${adm?`<button class="ghost danger" data-act="delNotice" data-id="${n.id}">삭제</button>`:''}</div><div class="note-text">${esc(n.text)}</div></div>`).join('')
+    : `<div class="empty-msg">등록된 공지가 없어요</div>`;
+  return h + `</section>`;
+}
+
 function sumHTML(b, edit){
   const dis = edit ? '' : 'disabled', used = stackSum(b), hp = Number(b.hp)||0;
   const rem = Math.max(0, hp - used), pct = hp ? Math.round(rem/hp*1000)/10 : 0;
   let left = hp;
   let h = `<div class="sumbox" data-drop="${b.id}">
-    <div class="sum-title">보스 잔여량 <span class="muted">(딜량을 끌어다 놓거나 ‘차감▸’)</span></div>
-    <input type="text" data-f="hp" value="${hp?fmtDmg(hp):''}" placeholder="보스 체력 (예: 500억)" aria-label="보스 체력" ${dis}>
+    <div class="sum-title">랩쳐 잔여량 <span class="muted">(딜량을 끌어다 놓거나 ‘차감▸’)</span></div>
+    <input type="text" data-f="hp" value="${hp?fmtDmg(hp):''}" placeholder="랩쳐 체력 (예: 500억)" aria-label="랩쳐 체력" ${dis}>
     <div class="hpbar"><i style="width:${pct}%"></i><span>${hp ? (rem>0 ? `남은 ${fmtDmg(rem)} · ${pct}%` : `처치! 초과 ${fmtDmg(used-hp)}`) : '체력을 입력하면 표시돼요'}</span></div>`;
   (b.stack||[]).forEach(x=>{
     left -= x.dmg;
@@ -326,12 +368,13 @@ function bossHTML(b, edit){
   const dis = edit ? '' : 'disabled';
   let h = `<article class="boss" data-b="${b.id}" style="--el:${elColor(b.element)}">
     <div class="row" style="flex-wrap:nowrap">
-      <input type="text" class="boss-name" data-f="bossname" value="${esc(b.name)}" aria-label="보스 이름" ${dis}>
-      ${edit?`<button class="ghost danger" data-act="delBoss" aria-label="보스 삭제">삭제</button>`:''}
+      <input type="text" class="boss-name" data-f="bossname" value="${esc(b.name)}" aria-label="랩쳐 이름" ${dis}>
+      ${edit?`<button class="ghost danger" data-act="delBoss" aria-label="랩쳐 삭제">삭제</button>`:''}
     </div>
     <div class="boss-meta">
       <img class="el-icon sm" src="${elIcon(b.element)}" alt="">
       <select data-f="bosselement" aria-label="속성" ${dis}>${ELEMENTS.map(e=>`<option ${e.k===b.element?'selected':''}>${e.k}</option>`).join('')}</select>
+      <select data-f="rtype" aria-label="랩쳐 유형" ${dis}><option value="" ${b.rtype?'':'selected'}>유형</option>${RTYPES.map(t=>`<option ${t===b.rtype?'selected':''}>${t}</option>`).join('')}</select>
       <select data-f="sort" aria-label="정렬" ${dis}>
         <option value="input" ${b.sort==='input'?'selected':''}>입력순</option>
         <option value="name" ${b.sort==='name'?'selected':''}>닉네임순</option>
@@ -344,12 +387,12 @@ function bossHTML(b, edit){
     h += `<div class="entry" data-e="${e.id}">
       <div class="entry-top">
         <input type="text" data-f="nick" list="names" value="${esc(e.nick)}" placeholder="닉네임" aria-label="닉네임" ${dis}>
-        <span class="total${edit?' grip':''}" ${edit?`draggable="true" data-drag="${b.id}|${e.id}|" title="끌어서 보스 잔여량 칸에 놓기"`:''} data-tot="entry:${e.id}">${fmtDmg(entryTotal(e))}</span>
+        <span class="total${edit?' grip':''}" ${edit?`draggable="true" data-drag="${b.id}|${e.id}|" title="끌어서 랩쳐 잔여량 칸에 놓기"`:''} data-tot="entry:${e.id}">${fmtDmg(entryTotal(e))}</span>
         ${edit?`<button class="ghost danger" data-act="delEntry" aria-label="인원 삭제">×</button>`:''}
       </div>`;
     e.combos.forEach((c,i)=>{
       h += `<div class="combo" data-c="${i}">
-        <div class="combo-top"><span>조합 ${i+1}</span><span>${edit?`<span class="grip" draggable="true" data-drag="${b.id}|${e.id}|${i}" title="끌어서 보스 잔여량 칸에 놓기">⠿</span><button data-act="toStack" title="보스 잔여량에 추가">차감▸</button>`:''}${edit&&e.combos.length>1?`<button data-act="delCombo" aria-label="조합 삭제">×</button>`:''}</span></div>
+        <div class="combo-top"><span>조합 ${i+1}</span><span>${edit?`<span class="grip" draggable="true" data-drag="${b.id}|${e.id}|${i}" title="끌어서 랩쳐 잔여량 칸에 놓기">⠿</span><button data-act="toStack" title="랩쳐 잔여량에 추가">차감▸</button>`:''}${edit&&e.combos.length>1?`<button data-act="delCombo" aria-label="조합 삭제">×</button>`:''}</span></div>
         <input type="text" data-f="combo" value="${esc(c.combo)}" placeholder="조합 입력" aria-label="조합" ${dis}>
         <input type="text" inputmode="numeric" class="dmg" data-f="dmg" value="${c.dmg?fmtDmg(c.dmg):''}" placeholder="딜량 (예: 12.5억)" aria-label="딜량" ${dis}>
         <textarea data-f="memo" rows="2" placeholder="기타 메모" aria-label="기타 메모" ${dis}>${esc(c.memo)}</textarea>
@@ -364,17 +407,20 @@ function bossHTML(b, edit){
 
 const HELP = `<section class="panel help"><h2>항목 설명</h2><dl>
   <dt>시즌</dt><dd>시즌별로 기록이 따로 저장돼요. 위쪽 탭/‹ › 로 이동하고, 이름·시작일·종료일을 넣어 새 시즌을 만들어요. 시즌을 삭제하면 그 시즌의 모든 기록이 함께 지워져요.</dd>
-  <dt>공략조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
-  <dt>보스 추가</dt><dd>보스 이름과 속성(풍압·전격·철갑·수냉·작열)을 골라 추가하면 해당 속성 열에 보스 카드가 생겨요.</dd>
-  <dt>속성별 표</dt><dd>열 머리의 ‘보스 수 · 합계’는 그 속성 보스들의 딜량을 모두 더한 값이에요.</dd>
-  <dt>보스 카드</dt><dd>이름·속성을 바꾸고, 정렬(입력순/닉네임순/딜량순)을 고를 수 있어요. ‘합계’는 카드 안 모든 인원의 딜량 합이에요.</dd>
-  <dt>인원 / 닉네임</dt><dd>한 사람의 기록 단위예요. 오른쪽 숫자는 그 사람의 조합 딜량 합이며, 끌어서 보스 잔여량 칸에 놓을 수 있어요.</dd>
+  <dt>빡겜조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
+  <dt>공지사항</dt><dd>상단 ‘공지사항’ 탭에서 확인해요. 공지는 관리자(구글 로그인)만 등록·삭제할 수 있어요.</dd>
+  <dt>랩쳐 유형</dt><dd>랩쳐를 추가할 때 헬레틱·로드·타일런트 중 유형을 고르고, 카드에서도 바꿀 수 있어요.</dd>
+  <dt>디스코드</dt><dd>한잔 디스코드 가입은 필수예요. 맨 아래 버튼을 누르면 바로 이동해요.</dd>
+  <dt>랩쳐 추가</dt><dd>랩쳐 이름과 속성(풍압·전격·철갑·수냉·작열)을 골라 추가하면 해당 속성 열에 랩쳐 카드가 생겨요.</dd>
+  <dt>속성별 표</dt><dd>열 머리의 ‘랩쳐 수 · 합계’는 그 속성 랩쳐들의 딜량을 모두 더한 값이에요.</dd>
+  <dt>랩쳐 카드</dt><dd>이름·속성을 바꾸고, 정렬(입력순/닉네임순/딜량순)을 고를 수 있어요. ‘합계’는 카드 안 모든 인원의 딜량 합이에요.</dd>
+  <dt>인원 / 닉네임</dt><dd>한 사람의 기록 단위예요. 오른쪽 숫자는 그 사람의 조합 딜량 합이며, 끌어서 랩쳐 잔여량 칸에 놓을 수 있어요.</dd>
   <dt>조합 / 딜량 / 메모</dt><dd>조합 칸은 개수 제한 없이 추가할 수 있어요. 딜량은 숫자 또는 ‘12.5억’처럼 입력하고, 1억 이상은 억 단위로 표시돼요. 메모에는 기타 내용을 적어요.</dd>
-  <dt>보스 잔여량</dt><dd>보스 체력(예: 500억)을 입력하고, 조합 옆 ⠿를 끌어다 놓거나 ‘차감▸’을 누르면 딜량만큼 체력이 깎여요. 남은 체력과 퍼센트가 표시되고 항목마다 차감 후 체력이 나와요. 추가 시점의 값이 복사되므로, 딜량을 고쳤다면 ×로 지우고 다시 추가해 주세요.</dd>
-  <dt>자동 배정</dt><dd>남은 체력을 기준으로, 이 보스에 기록된 인원 중 아직 합산에 없는 사람을 추천해 채워요. 딜량이 큰 순으로 고르되 마지막은 남은 체력을 채우는 가장 작은 딜량을 골라요.</dd>
-  <dt>초기화</dt><dd>보스 잔여량 목록을 비워요(보스 체력 값은 유지).</dd>
+  <dt>랩쳐 잔여량</dt><dd>랩쳐 체력(예: 500억)을 입력하고, 조합 옆 ⠿를 끌어다 놓거나 ‘차감▸’을 누르면 딜량만큼 체력이 깎여요. 남은 체력과 퍼센트가 표시되고 항목마다 차감 후 체력이 나와요. 추가 시점의 값이 복사되므로, 딜량을 고쳤다면 ×로 지우고 다시 추가해 주세요.</dd>
+  <dt>자동 배정</dt><dd>남은 체력을 기준으로, 이 랩쳐에 기록된 인원 중 아직 합산에 없는 사람을 추천해 채워요. 딜량이 큰 순으로 고르되 마지막은 남은 체력을 채우는 가장 작은 딜량을 골라요.</dd>
+  <dt>초기화</dt><dd>랩쳐 잔여량 목록을 비워요(랩쳐 체력 값은 유지).</dd>
 </dl></section>`;
-const KEEP = ['applicantName','bossName','sName','sStart','sEnd'];
+const KEEP = ['noticeText','applicantName','bossName','sName','sStart','sEnd'];
 function render(){
   const edit = canEdit(), s = season();
   const act = document.activeElement;
@@ -382,15 +428,16 @@ function render(){
   const focusId = act && KEEP.includes(act.id) ? act.id : null;
   const caret = focusId && act.selectionStart != null ? act.selectionStart : null;
 
-  $('#tools').innerHTML = useFB ? ''
+  $('#tools').innerHTML = useFB ? (user ? `<button data-act="logout">관리자 로그아웃</button>` : `<button data-act="login">관리자 로그인</button>`)
     : `<button data-act="export">내보내기</button><button data-act="import">가져오기</button>`;
 
-  let h = '';
+  let h = `<div class="view-nav"><button class="tab" data-act="view" data-v="main" aria-current="${state.view!=='notice'}">메인</button><button class="tab" data-act="view" data-v="notice" aria-current="${state.view==='notice'}">공지사항${state.notices.length?` (${state.notices.length})`:''}</button></div>`;
   if(!useFB) h += `<p class="notice">Firebase 설정 전이라 이 브라우저에만 저장돼요. 코드 위쪽의 FIREBASE_CONFIG를 채우면 여러 명이 함께 쓸 수 있어요.</p>`;
   if(!state.loaded) h += `<div class="empty-msg">불러오는 중…</div>`;
 
   /* 시즌 이동 */
-  if(state.loaded){
+  if(state.loaded && state.view==='notice') h += noticeHTML();
+  if(state.loaded && state.view!=='notice'){
     const idx = state.seasons.findIndex(x=>x.id===state.current);
     h += `<section class="panel"><div class="season-nav">
       <button data-act="prevSeason" aria-label="이전 시즌" ${idx>0?'':'disabled'}>‹</button>
@@ -406,7 +453,7 @@ function render(){
         ${edit?`<button class="ghost danger" data-act="delSeason">시즌 삭제</button>`:''}</div>`;
     }
     if(edit) h += `<div class="season-form">
-        <div class="wide"><label for="sName">새 시즌 이름</label><input type="text" id="sName" placeholder="예: 시즌 12"></div>
+        <div class="wide"><label for="sName">유니온 레이드 시즌</label><input type="text" id="sName" placeholder="예: 시즌 12"></div>
         <div><label for="sStart">시작일</label><input type="date" id="sStart"></div>
         <div><label for="sEnd">종료일</label><input type="date" id="sEnd"></div>
         <button class="primary" data-act="newSeason">시즌 만들기</button>
@@ -415,7 +462,7 @@ function render(){
 
     /* 빡겜조 신청 (이름 가나다순) */
     const apps = state.applicants.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-    h += `<section class="panel ${s?'':'locked'}"><h2>공략조 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
+    h += `<section class="panel ${s?'':'locked'}"><h2>빡겜조 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
       <div class="row" style="margin-top:10px">
         <input type="text" id="applicantName" maxlength="20" placeholder="${s?'이름 입력 후 신청':'시즌이 생기면 신청할 수 있어요'}" style="max-width:260px" ${s?'':'disabled'}>
         <button class="primary" data-act="addApplicant" ${s?'':'disabled'}>신청</button>
@@ -423,12 +470,13 @@ function render(){
       ${apps.length?`<div class="chips">${apps.map(a=>`<span class="chip ${edit?'has-x':''}" data-a="${a.id}">${esc(a.name)}${edit?`<button data-act="delApplicant" aria-label="${esc(a.name)} 신청 취소">×</button>`:''}</span>`).join('')}</div>`:''}
     </section>`;
 
-    /* 보스 추가 (관리자) */
-    if(edit) h += `<section class="panel ${s?'':'locked'}"><h2>보스 추가</h2>
+    /* 랩쳐 추가 (관리자) */
+    if(edit) h += `<section class="panel ${s?'':'locked'}"><h2>랩쳐 추가</h2>
       <div class="row" style="margin-top:10px">
-        <input type="text" id="bossName" placeholder="보스 이름" style="max-width:260px" ${s?'':'disabled'}>
+        <input type="text" id="bossName" placeholder="랩쳐 이름" style="max-width:260px" ${s?'':'disabled'}>
         <select id="bossEl" style="width:auto" ${s?'':'disabled'}>${ELEMENTS.map(e=>`<option>${e.k}</option>`).join('')}</select>
-        <button class="primary" data-act="addBoss" ${s?'':'disabled'}>보스 추가</button>
+        <select id="bossType" style="width:auto" aria-label="랩쳐 유형" ${s?'':'disabled'}>${RTYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+        <button class="primary" data-act="addBoss" ${s?'':'disabled'}>랩쳐 추가</button>
       </div></section>`;
 
     /* 속성별 표 */
@@ -436,18 +484,18 @@ function render(){
       h += `<div class="board-scroll"><table class="board"><thead><tr>`;
       ELEMENTS.forEach(el=>{
         const list = state.bosses.filter(b=>b.element===el.k);
-        h += `<th style="--el:${el.c}"><span class="el-head"><img class="el-icon" src="${el.i}" alt="">${el.k}</span><small data-tot="col:${el.k}">보스 ${list.length} · 합계 ${fmtDmg(list.reduce((a,b)=>a+bossTotal(b),0))}</small></th>`;
+        h += `<th style="--el:${el.c}"><span class="el-head"><img class="el-icon" src="${el.i}" alt="">${el.k}</span><small data-tot="col:${el.k}">랩쳐 ${list.length} · 합계 ${fmtDmg(list.reduce((a,b)=>a+bossTotal(b),0))}</small></th>`;
       });
       h += `</tr></thead><tbody><tr>`;
       ELEMENTS.forEach(el=>{
         const list = state.bosses.filter(b=>b.element===el.k);
-        h += `<td>${list.length ? list.map(b=>bossHTML(b,edit)).join('') : `<div class="empty-msg">${el.k} 보스 없음</div>`}</td>`;
+        h += `<td>${list.length ? list.map(b=>bossHTML(b,edit)).join('') : `<div class="empty-msg">${el.k} 랩쳐 없음</div>`}</td>`;
       });
       h += `</tr></tbody></table></div>`;
     }
     h += `<datalist id="names">${apps.map(a=>`<option value="${esc(a.name)}">`).join('')}</datalist>`;
   }
-  if(state.loaded) h += HELP;
+  if(state.loaded && state.view!=='notice') h += HELP;
   $('#app').innerHTML = h;
 
   KEEP.forEach(id=>{ const el=document.getElementById(id); if(el && keep[id]!=null) el.value = keep[id]; });
@@ -471,11 +519,11 @@ function refreshTotals(){
     const [t,id] = el.dataset.tot.split(':');
     if(t==='boss'){ const b=state.bosses.find(x=>x.id===id); if(b) el.textContent='합계 '+fmtDmg(bossTotal(b)); }
     if(t==='entry'){ for(const b of state.bosses){ const e=b.entries.find(x=>x.id===id); if(e){ el.textContent=fmtDmg(entryTotal(e)); break; } } }
-    if(t==='col'){ const l=state.bosses.filter(b=>b.element===id); el.textContent=`보스 ${l.length} · 합계 ${fmtDmg(l.reduce((a,b)=>a+bossTotal(b),0))}`; }
+    if(t==='col'){ const l=state.bosses.filter(b=>b.element===id); el.textContent=`랩쳐 ${l.length} · 합계 ${fmtDmg(l.reduce((a,b)=>a+bossTotal(b),0))}`; }
   });
 }
 
-/* ---------- 보스 잔여량 ---------- */
+/* ---------- 랩쳐 잔여량 ---------- */
 function addStack(tb, e, ci){
   const c = ci==null ? null : e.combos[ci];
   const dmg = c ? c.dmg : entryTotal(e);
@@ -484,7 +532,7 @@ function addStack(tb, e, ci){
   run(store.saveBoss(tb));
 }
 function autoAssign(b){
-  if(!b.hp) return toast('보스 체력을 먼저 입력해 주세요');
+  if(!b.hp) return toast('랩쳐 체력을 먼저 입력해 주세요');
   let rem = b.hp - stackSum(b);
   if(rem<=0) return toast('이미 체력을 모두 채웠어요');
   const used = new Set(b.stack.map(x=>x.eid));
@@ -530,6 +578,7 @@ document.addEventListener('change', ev=>{
   if(f==='bossname'){ const v = el.value.trim(); if(v) b.name = v; el.value = b.name; }
   if(f==='bosselement') b.element = el.value;
   if(f==='sort') b.sort = el.value;
+  if(f==='rtype') b.rtype = el.value;
   if(f==='nick' && e){ e.nick = el.value.trim(); el.value = e.nick; }
   if(f==='combo' && c){ c.combo = el.value.trim(); el.value = c.combo; }
   if(f==='dmg' && c){ c.dmg = parseDmg(el.value); el.value = c.dmg ? fmtDmg(c.dmg) : ''; }
@@ -547,7 +596,7 @@ document.addEventListener('click', async ev=>{
   const btn = ev.target.closest('[data-act]'); if(!btn) return;
   const act = btn.dataset.act;
   const {s,b,e,ci,aid} = ctx(btn);
-  const open = ['addApplicant','selSeason','prevSeason','nextSeason','login'];
+  const open = ['view','addApplicant','selSeason','prevSeason','nextSeason','login'];
   if(!open.includes(act) && !canEdit()) return;
 
   if(act==='login'){
@@ -590,8 +639,8 @@ document.addEventListener('click', async ev=>{
   }
   else if(act==='addBoss'){
     const name = $('#bossName').value.trim();
-    if(!name) return toast('보스 이름을 입력해 주세요');
-    const nb = {id:uid(), name, element:$('#bossEl').value, sort:'input', entries:[], hp:0, stack:[], created:Date.now()};
+    if(!name) return toast('랩쳐 이름을 입력해 주세요');
+    const nb = {id:uid(), name, element:$('#bossEl').value, sort:'input', rtype:$('#bossType').value, entries:[], hp:0, stack:[], created:Date.now()};
     state.bosses.push(nb); run(store.saveBoss(nb)); $('#bossName').value = '';
   }
   else if(act==='delBoss'){
@@ -606,6 +655,19 @@ document.addEventListener('click', async ev=>{
   else if(act==='delStack'){ b.stack = b.stack.filter(x=>x.id!==btn.dataset.s); run(store.saveBoss(b)); }
   else if(act==='clearStack'){ if(!b.stack.length || !confirm('합산 목록을 비울까요?')) return; b.stack = []; run(store.saveBoss(b)); }
   else if(act==='autoAssign'){ autoAssign(b); }
+  else if(act==='view'){ state.view = btn.dataset.v; }
+  else if(act==='addNotice'){
+    if(!isAdmin()) return toast('관리자만 작성할 수 있어요');
+    const text = $('#noticeText').value.trim(); if(!text) return toast('공지 내용을 입력해 주세요');
+    const n = {id:uid(), text, at:Date.now()};
+    state.notices.unshift(n);
+    run(store.addNotice(n), ()=>{ state.notices = state.notices.filter(x=>x!==n); render(); });
+    $('#noticeText').value = '';
+  }
+  else if(act==='delNotice'){
+    if(!isAdmin() || !confirm('공지를 삭제할까요?')) return;
+    state.notices = state.notices.filter(x=>x.id!==btn.dataset.id); run(store.deleteNotice(btn.dataset.id));
+  }
   else if(act==='export'){
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([localStore.exportData()],{type:'application/json'}));
