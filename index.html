@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BBAKGAMEZO</title>
+<title>PIONEER</title>
 <link rel="icon" type="image/png" href="char-icon.png">
 <link rel="apple-touch-icon" href="char-icon.png">
 <meta name="description" content="니케 한잔 유니온 레이드 공략조 신청 및 모의전 딜량 체크 조합 사이트">
@@ -153,7 +153,7 @@ table.board{width:100%;min-width:1300px;table-layout:fixed;border-collapse:separ
   <header>
     <div class="brand">
       <img class="logo" src="char-icon.png" alt="" onerror="this.style.display='none'">
-      <h1>BBAKGAMEZO</h1>
+      <h1>PIONEER</h1>
     </div>
     <div class="tools" id="tools"></div>
   </header>
@@ -407,7 +407,7 @@ function bossHTML(b, edit){
 
 const HELP = `<section class="panel help"><h2>항목 설명</h2><dl>
   <dt>시즌</dt><dd>시즌별로 기록이 따로 저장돼요. 위쪽 탭/‹ › 로 이동하고, 이름·시작일·종료일을 넣어 새 시즌을 만들어요. 시즌을 삭제하면 그 시즌의 모든 기록이 함께 지워져요.</dd>
-  <dt>빡겜조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
+  <dt>공략조 신청</dt><dd>이름을 입력해 신청하면 아래 칩으로 표시돼요(가나다순, 중복 불가). 칩의 ×로 신청을 취소할 수 있고, 신청한 이름은 닉네임 자동완성에도 쓰여요.</dd>
   <dt>공지사항</dt><dd>상단 ‘공지사항’ 탭에서 확인해요. 공지는 관리자(구글 로그인)만 등록·삭제할 수 있어요.</dd>
   <dt>랩쳐 유형</dt><dd>랩쳐를 추가할 때 헬레틱·로드·타일런트 중 유형을 고르고, 카드에서도 바꿀 수 있어요.</dd>
   <dt>디스코드</dt><dd>한잔 디스코드 가입은 필수예요. 맨 아래 버튼을 누르면 바로 이동해요.</dd>
@@ -460,9 +460,9 @@ function render(){
       </div>`;
     h += `</section>`;
 
-    /* 빡겜조 신청 (이름 가나다순) */
+    /* 공략조 신청 (이름 가나다순) */
     const apps = state.applicants.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-    h += `<section class="panel ${s?'':'locked'}"><h2>빡겜조 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
+    h += `<section class="panel ${s?'':'locked'}"><h2>공략조 신청${s?` <span class="muted">${apps.length}명</span>`:''}</h2>
       <div class="row" style="margin-top:10px">
         <input type="text" id="applicantName" maxlength="20" placeholder="${s?'이름 입력 후 신청':'시즌이 생기면 신청할 수 있어요'}" style="max-width:260px" ${s?'':'disabled'}>
         <button class="primary" data-act="addApplicant" ${s?'':'disabled'}>신청</button>
